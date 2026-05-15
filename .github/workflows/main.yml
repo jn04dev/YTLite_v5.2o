@@ -83,7 +83,7 @@ jobs:
 
     steps:
       - name: Checkout Main
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v5
         with:
           path: main
           submodules: recursive
@@ -122,7 +122,7 @@ jobs:
 
       - name: Setup Theos
         if: ${{ steps.theos.outputs.cache-hit != 'true' }}
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v5
         with:
           repository: theos/theos
           ref: 67db2ab8d950910161730de77c322658ea3e6b44
@@ -144,7 +144,7 @@ jobs:
         run: pipx install --force https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
 
       - name: Clone YTLite source
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v5
         with:
           repository: dayanch96/YTLite
           ref: ${{ inputs.tweak_ref }}
@@ -261,7 +261,7 @@ jobs:
 
       - name: Clone YTUHD
         if: ${{ inputs.enable_ytuhd }}
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v5
         with:
           repository: PoomSmart/YTUHD
           ref: 0f59b38817d554ab692a0053456319847a6ab1a1
@@ -381,7 +381,7 @@ jobs:
           cyan -i youtube.ipa -o YouTubePlus_${{ inputs.tweak_version }}.ipa -uwef $tweaks -n "${{ inputs.display_name }}" -b ${{ inputs.bundle_id }}
 
       - name: Upload to GitHub Releases
-        uses: softprops/action-gh-release@v2.0.1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ytp-${{ github.run_number }}
           name: YouTubePlus v${{ inputs.tweak_version }} (${{ github.run_number }})

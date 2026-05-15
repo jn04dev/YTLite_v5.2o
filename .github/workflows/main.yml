@@ -282,10 +282,28 @@ jobs:
           git clone --quiet --depth=1 https://github.com/PoomSmart/Return-YouTube-Dislikes.git
 
       - name: Clone YouGroupSettings
-        if: ${{ inputs.enable_demc }}
         run: |
           cd ${{ github.workspace }}
           git clone --quiet --depth=1 https://github.com/PoomSmart/YouGroupSettings.git
+
+      - name: Patch YouGroupSettings to register YTLite section (789)
+        run: |
+          # YT 21.x moved settings to a two-level group/category UI. YouGroupSettings
+          # creates the "Tweaks" group and maintains a hardcoded whitelist of category
+          # IDs that get rendered under it. YTLite (789) isn't in that whitelist, so
+          # its section was silently dropped. Inject @(789) at the top so YTLite
+          # appears first within the Tweaks group.
+          python3 - <<'PY'
+          import pathlib
+          p = pathlib.Path("${{ github.workspace }}/YouGroupSettings/Tweak.x")
+          src = p.read_text()
+          marker = "        [tweaks addObjectsFromArray:@[\n            @(404), // YTABConfig"
+          if marker not in src:
+              raise SystemExit("YouGroupSettings tweaks array marker not found; source may have changed")
+          replacement = "        [tweaks addObjectsFromArray:@[\n            @(789), // YTLite\n            @(404), // YTABConfig"
+          p.write_text(src.replace(marker, replacement))
+          print("Patched YouGroupSettings: YTLite (789) now appears at top of Tweaks group")
+          PY
 
       - name: Clone YouQuality
         if: ${{ inputs.enable_yq }}
@@ -333,7 +351,6 @@ jobs:
           THEOS: ${{ github.workspace }}/theos
 
       - name: Build YouGroupSettings
-        if: ${{ inputs.enable_demc }}
         run: |
           cd ${{ github.workspace }}/YouGroupSettings
           make clean package DEBUG=0 FINALPACKAGE=1

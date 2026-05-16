@@ -15,6 +15,19 @@
       "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
       "tintColor": "FF0000",
       "size": 119131983
+    },
+    {
+      "name": "YT-diag",
+      "bundleIdentifier": "com.google.ios.youtube.altstore.diag",
+      "developerName": "Jake (YTLite fork — DIAG)",
+      "version": "21.15.5",
+      "versionDate": "2026-05-16T02:51:34Z",
+      "size": 119132758,
+      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-diag-2/YouTubeDiag_5.2o.ipa",
+      "versionDescription": "[DIAG ytp-diag-2] YouTube 21.15.5 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent). NSLog capture build — filter Console.app by YTLite-DIAG. Built 2026-05-16T02:51:34Z.",
+      "localizedDescription": "Diagnostic build of YouTube+. Identical features to the stable entry, plus a temporary NSLog hook that prints cell class info to the iOS system log (filter Console.app by YTLite-DIAG) so the maintainer can identify how YT 21.x labels shorts shelves. Different bundle id from the stable build — both can be installed side by side.",
+      "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
+      "tintColor": "FFAA00"
     }
   ],
   "news": []

@@ -215,6 +215,54 @@ jobs:
           print("Patched Settings.x: YTLite section now inserts unconditionally")
           PY
 
+      - name: TEMP — diagnostic NSLog in cellForItemAtIndexPath (capture shorts shelf class on YT 21.x)
+        run: |
+          # Inject a temporary NSLog at the top of YTAsyncCollectionView's
+          # cellForItemAtIndexPath hook to dump the cell class + accessibility
+          # identifier for any cell whose class looks like a shelf/reel/shorts/
+          # horizontal/_AS variant. Jake captures the output via Console.app on
+          # his Mac (filter: YTLite-DIAG) to identify the real cell class +
+          # discriminator for shorts shelves on YT 21.x, then we ship a
+          # targeted fix and remove this diagnostic.
+          python3 - <<'PY'
+          import pathlib, re
+          p = pathlib.Path("${{ github.workspace }}/theos/include/YTLite/YTLite.x")
+          src = p.read_text()
+          anchor = (
+              "// Remove Premium Pop-up, Horizontal Video Carousel and Shorts (https://github.com/MiRO92/YTNoShorts)\n"
+              "%hook YTAsyncCollectionView\n"
+              "- (id)cellForItemAtIndexPath:(NSIndexPath *)indexPath {\n"
+              "    UICollectionViewCell *cell = %orig;\n"
+          )
+          if anchor not in src:
+              raise SystemExit("YTAsyncCollectionView hook anchor not found; source may have changed")
+          injected = (
+              anchor
+              + '\n'
+              '    // [YTLite-DIAG] TEMPORARY diagnostic. Remove once we identify the real shorts shelf class on YT 21.x.\n'
+              '    {\n'
+              '        NSString *clsName = NSStringFromClass([cell class]);\n'
+              '        if ([clsName containsString:@"Shelf"] || [clsName containsString:@"Reel"] || [clsName containsString:@"Shorts"] || [clsName containsString:@"Horizontal"] || [clsName containsString:@"_AS"]) {\n'
+              '            NSString *cellID = cell.accessibilityIdentifier ?: @"<nil>";\n'
+              '            NSString *nodeID = @"<no-node>";\n'
+              '            NSString *nodeCls = @"<no-node>";\n'
+              '            if ([cell respondsToSelector:@selector(node)]) {\n'
+              '                id node = [(id)cell node];\n'
+              '                if (node) {\n'
+              '                    nodeCls = NSStringFromClass([node class]);\n'
+              '                    if ([node respondsToSelector:@selector(accessibilityIdentifier)]) {\n'
+              '                        nodeID = [node accessibilityIdentifier] ?: @"<nil>";\n'
+              '                    }\n'
+              '                }\n'
+              '            }\n'
+              '            NSLog(@"[YTLite-DIAG] row=%ld cellCls=%@ cellID=%@ nodeCls=%@ nodeID=%@", (long)indexPath.row, clsName, cellID, nodeCls, nodeID);\n'
+              '        }\n'
+              '    }\n'
+          )
+          p.write_text(src.replace(anchor, injected))
+          print("Injected diagnostic NSLog into YTAsyncCollectionView.cellForItemAtIndexPath")
+          PY
+
       - name: Install roothide stub headers
         run: |
           mkdir -p "$THEOS/include/roothide"

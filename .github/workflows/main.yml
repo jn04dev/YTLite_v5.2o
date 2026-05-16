@@ -215,6 +215,74 @@ jobs:
           print("Patched Settings.x: YTLite section now inserts unconditionally")
           PY
 
+      - name: Patch YTLite.x to drop shorts sections at section-list level
+        run: |
+          # YT 21.x retired YTReelShelfCell. YTLite's cellForItemAtIndexPath hook
+          # no longer matches shorts shelves, so the cell is allocated and the
+          # YTIElementRenderer hook nullifies its content, producing an empty slot
+          # in the home feed where the shelf used to be.
+          #
+          # Extend the YTSectionListViewController.loadWithModel: hook (which
+          # already drops ad sections) to also drop sections whose first element
+          # renderer description contains shorts tokens. The same tokens are
+          # proven to match on 21.x via the elementData hook, so the section is
+          # filtered before any cell is allocated and no slot is left behind.
+          #
+          # Use a regex anchored on a unique signature in the original hook to
+          # avoid embedding indented multi-line strings (YAML heredoc indent
+          # quirks make those fragile).
+          python3 - <<'PY'
+          import pathlib, re
+          p = pathlib.Path("${{ github.workspace }}/theos/include/YTLite/YTLite.x")
+          src = p.read_text()
+          # Anchor on the closing of the original block: from `%hook YTSectionListViewController`
+          # through the matching `%end` immediately preceded by `} %orig;\n}`.
+          pattern = re.compile(
+              r"%hook YTSectionListViewController\s*\n"
+              r"- \(void\)loadWithModel:\(YTISectionListRenderer \*\)model \{\s*\n"
+              r"    if \(ytlBool\(@\"noAds\"\)\) \{[\s\S]*?return firstObject\.hasPromotedVideoRenderer \|\| firstObject\.hasCompactPromotedVideoRenderer \|\| firstObject\.hasPromotedVideoInlineMutedRenderer;\s*\n"
+              r"        \}\];\s*\n"
+              r"        \[contentsArray removeObjectsAtIndexes:removeIndexes\];\s*\n"
+              r"    \} %orig;\s*\n"
+              r"\}\s*\n"
+              r"%end"
+          )
+          replacement = (
+              '%hook YTSectionListViewController\n'
+              '- (void)loadWithModel:(YTISectionListRenderer *)model {\n'
+              '    BOOL noAds = ytlBool(@"noAds");\n'
+              '    BOOL hideShortsSections = ytlBool(@"hideShorts");\n'
+              '    if (noAds || hideShortsSections) {\n'
+              '        NSMutableArray <YTISectionListSupportedRenderers *> *contentsArray = model.contentsArray;\n'
+              '        NSIndexSet *removeIndexes = [contentsArray indexesOfObjectsPassingTest:^BOOL(YTISectionListSupportedRenderers *renderers, NSUInteger idx, BOOL *stop) {\n'
+              '            YTIItemSectionRenderer *sectionRenderer = renderers.itemSectionRenderer;\n'
+              '            YTIItemSectionSupportedRenderers *firstObject = [sectionRenderer.contentsArray firstObject];\n'
+              '            if (noAds && (firstObject.hasPromotedVideoRenderer || firstObject.hasCompactPromotedVideoRenderer || firstObject.hasPromotedVideoInlineMutedRenderer)) {\n'
+              '                return YES;\n'
+              '            }\n'
+              '            if (hideShortsSections && firstObject.elementRenderer) {\n'
+              '                NSString *desc = [firstObject.elementRenderer description];\n'
+              '                if (![desc containsString:@"history*"]) {\n'
+              '                    NSArray *shortsTokens = @[@"shorts_shelf.eml", @"shorts_video_cell.eml", @"shorts-shelf", @"shorts-grid", @"6Shorts"];\n'
+              '                    for (NSString *token in shortsTokens) {\n'
+              '                        if ([desc containsString:token]) return YES;\n'
+              '                    }\n'
+              '                }\n'
+              '            }\n'
+              '            return NO;\n'
+              '        }];\n'
+              '        [contentsArray removeObjectsAtIndexes:removeIndexes];\n'
+              '    } %orig;\n'
+              '}\n'
+              '%end'
+          )
+          new_src, n = pattern.subn(replacement, src, count=1)
+          if n != 1:
+              raise SystemExit(f"Expected exactly 1 match of YTSectionListViewController hook, found {n}")
+          p.write_text(new_src)
+          print("Patched YTLite.x: shorts sections now filtered at section-list level")
+          PY
+
       - name: Install roothide stub headers
         run: |
           mkdir -p "$THEOS/include/roothide"

@@ -215,52 +215,89 @@ jobs:
           print("Patched Settings.x: YTLite section now inserts unconditionally")
           PY
 
-      - name: TEMP — diagnostic NSLog in cellForItemAtIndexPath (capture shorts shelf class on YT 21.x)
+      - name: TEMP — diagnostic NSLog hooks (capture YT 21.x home feed cell classes)
         run: |
-          # Inject a temporary NSLog at the top of YTAsyncCollectionView's
-          # cellForItemAtIndexPath hook to dump the cell class + accessibility
-          # identifier for any cell whose class looks like a shelf/reel/shorts/
-          # horizontal/_AS variant. Jake captures the output via Console.app on
-          # his Mac (filter: YTLite-DIAG) to identify the real cell class +
-          # discriminator for shorts shelves on YT 21.x, then we ship a
-          # targeted fix and remove this diagnostic.
+          # Two injections:
+          # 1) Top of the existing YTAsyncCollectionView.cellForItemAtIndexPath
+          #    hook — unfiltered NSLog so we see every cell that flows through.
+          # 2) An additional %hook block on ASCollectionView (the AsyncDisplayKit
+          #    base class). YT 21.x home feed likely uses ASCollectionView directly
+          #    rather than YTAsyncCollectionView (which is YT's subclass). The
+          #    additional hook catches that case. A class-name guard avoids
+          #    double-logging for YTAsyncCollectionView instances.
           python3 - <<'PY'
-          import pathlib, re
+          import pathlib
           p = pathlib.Path("${{ github.workspace }}/theos/include/YTLite/YTLite.x")
           src = p.read_text()
-          anchor = (
+
+          # Injection 1: unfiltered NSLog in YTAsyncCollectionView hook
+          anchor1 = (
               "// Remove Premium Pop-up, Horizontal Video Carousel and Shorts (https://github.com/MiRO92/YTNoShorts)\n"
               "%hook YTAsyncCollectionView\n"
               "- (id)cellForItemAtIndexPath:(NSIndexPath *)indexPath {\n"
               "    UICollectionViewCell *cell = %orig;\n"
           )
-          if anchor not in src:
-              raise SystemExit("YTAsyncCollectionView hook anchor not found; source may have changed")
-          injected = (
-              anchor
+          if anchor1 not in src:
+              raise SystemExit("YTAsyncCollectionView hook anchor not found")
+          injected1 = (
+              anchor1
               + '\n'
-              '    // [YTLite-DIAG] TEMPORARY diagnostic. Remove once we identify the real shorts shelf class on YT 21.x.\n'
+              '    // [YTLite-DIAG] TEMPORARY — unfiltered cell logging.\n'
               '    {\n'
-              '        NSString *clsName = NSStringFromClass([cell class]);\n'
-              '        if ([clsName containsString:@"Shelf"] || [clsName containsString:@"Reel"] || [clsName containsString:@"Shorts"] || [clsName containsString:@"Horizontal"] || [clsName containsString:@"_AS"]) {\n'
-              '            NSString *cellID = cell.accessibilityIdentifier ?: @"<nil>";\n'
-              '            NSString *nodeID = @"<no-node>";\n'
-              '            NSString *nodeCls = @"<no-node>";\n'
-              '            if ([cell respondsToSelector:@selector(node)]) {\n'
-              '                id node = [(id)cell node];\n'
-              '                if (node) {\n'
-              '                    nodeCls = NSStringFromClass([node class]);\n'
-              '                    if ([node respondsToSelector:@selector(accessibilityIdentifier)]) {\n'
-              '                        nodeID = [node accessibilityIdentifier] ?: @"<nil>";\n'
-              '                    }\n'
+              '        NSString *cellCls = NSStringFromClass([cell class]);\n'
+              '        NSString *cellID = cell.accessibilityIdentifier ?: @"<nil>";\n'
+              '        NSString *nodeCls = @"<no-node>";\n'
+              '        NSString *nodeID = @"<no-node>";\n'
+              '        if ([cell respondsToSelector:@selector(node)]) {\n'
+              '            id node = [(id)cell node];\n'
+              '            if (node) {\n'
+              '                nodeCls = NSStringFromClass([node class]);\n'
+              '                if ([node respondsToSelector:@selector(accessibilityIdentifier)]) {\n'
+              '                    nodeID = [node accessibilityIdentifier] ?: @"<nil>";\n'
               '                }\n'
               '            }\n'
-              '            NSLog(@"[YTLite-DIAG] row=%ld cellCls=%@ cellID=%@ nodeCls=%@ nodeID=%@", (long)indexPath.row, clsName, cellID, nodeCls, nodeID);\n'
               '        }\n'
+              '        NSLog(@"[YTLite-DIAG-YT] row=%ld cellCls=%@ cellID=%@ nodeCls=%@ nodeID=%@", (long)indexPath.row, cellCls, cellID, nodeCls, nodeID);\n'
               '    }\n'
           )
-          p.write_text(src.replace(anchor, injected))
-          print("Injected diagnostic NSLog into YTAsyncCollectionView.cellForItemAtIndexPath")
+          src = src.replace(anchor1, injected1)
+
+          # Injection 2: append a new %hook block for ASCollectionView at the end of file
+          new_hook = (
+              '\n'
+              '// [YTLite-DIAG] TEMPORARY hook on the AsyncDisplayKit base class to catch\n'
+              '// home-feed cells in case YT 21.x uses ASCollectionView directly rather\n'
+              '// than YTAsyncCollectionView. The guard avoids double-logging when the\n'
+              '// instance is actually a YTAsyncCollectionView (the subclass hook fires\n'
+              '// first due to ObjC dispatch).\n'
+              '%hook ASCollectionView\n'
+              '- (id)cellForItemAtIndexPath:(NSIndexPath *)indexPath {\n'
+              '    UICollectionViewCell *cell = %orig;\n'
+              '    NSString *viewCls = NSStringFromClass([self class]);\n'
+              '    if (![viewCls isEqualToString:@"YTAsyncCollectionView"]) {\n'
+              '        NSString *cellCls = NSStringFromClass([cell class]);\n'
+              '        NSString *cellID = cell.accessibilityIdentifier ?: @"<nil>";\n'
+              '        NSString *nodeCls = @"<no-node>";\n'
+              '        NSString *nodeID = @"<no-node>";\n'
+              '        if ([cell respondsToSelector:@selector(node)]) {\n'
+              '            id node = [(id)cell node];\n'
+              '            if (node) {\n'
+              '                nodeCls = NSStringFromClass([node class]);\n'
+              '                if ([node respondsToSelector:@selector(accessibilityIdentifier)]) {\n'
+              '                    nodeID = [node accessibilityIdentifier] ?: @"<nil>";\n'
+              '                }\n'
+              '            }\n'
+              '        }\n'
+              '        NSLog(@"[YTLite-DIAG-AS] viewCls=%@ row=%ld cellCls=%@ cellID=%@ nodeCls=%@ nodeID=%@", viewCls, (long)indexPath.row, cellCls, cellID, nodeCls, nodeID);\n'
+              '    }\n'
+              '    return cell;\n'
+              '}\n'
+              '%end\n'
+          )
+          src = src.rstrip() + '\n' + new_hook
+
+          p.write_text(src)
+          print("Diagnostic NSLog hooks injected: YTAsyncCollectionView (unfiltered) + ASCollectionView (additional)")
           PY
 
       - name: Install roothide stub headers

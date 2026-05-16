@@ -1,4 +1,4 @@
-name: Create YouTube Plus app
+name: Create YouTube Plus DIAG app
 
 on:
   workflow_dispatch:
@@ -54,13 +54,13 @@ on:
 
       display_name:
         description: "App Name (Optional)"
-        default: "YouTube+"
+        default: "YT-diag"
         required: true
         type: string
 
       bundle_id:
         description: "BundleID (Optional)"
-        default: "com.google.ios.youtube.altstore"
+        default: "com.google.ios.youtube.altstore.diag"
         required: true
         type: string
 
@@ -213,6 +213,54 @@ jobs:
               raise SystemExit("Settings.x patch target not found; source may have changed")
           p.write_text(src.replace(old, new))
           print("Patched Settings.x: YTLite section now inserts unconditionally")
+          PY
+
+      - name: TEMP — diagnostic NSLog in cellForItemAtIndexPath (capture shorts shelf class on YT 21.x)
+        run: |
+          # Inject a temporary NSLog at the top of YTAsyncCollectionView's
+          # cellForItemAtIndexPath hook to dump the cell class + accessibility
+          # identifier for any cell whose class looks like a shelf/reel/shorts/
+          # horizontal/_AS variant. Jake captures the output via Console.app on
+          # his Mac (filter: YTLite-DIAG) to identify the real cell class +
+          # discriminator for shorts shelves on YT 21.x, then we ship a
+          # targeted fix and remove this diagnostic.
+          python3 - <<'PY'
+          import pathlib, re
+          p = pathlib.Path("${{ github.workspace }}/theos/include/YTLite/YTLite.x")
+          src = p.read_text()
+          anchor = (
+              "// Remove Premium Pop-up, Horizontal Video Carousel and Shorts (https://github.com/MiRO92/YTNoShorts)\n"
+              "%hook YTAsyncCollectionView\n"
+              "- (id)cellForItemAtIndexPath:(NSIndexPath *)indexPath {\n"
+              "    UICollectionViewCell *cell = %orig;\n"
+          )
+          if anchor not in src:
+              raise SystemExit("YTAsyncCollectionView hook anchor not found; source may have changed")
+          injected = (
+              anchor
+              + '\n'
+              '    // [YTLite-DIAG] TEMPORARY diagnostic. Remove once we identify the real shorts shelf class on YT 21.x.\n'
+              '    {\n'
+              '        NSString *clsName = NSStringFromClass([cell class]);\n'
+              '        if ([clsName containsString:@"Shelf"] || [clsName containsString:@"Reel"] || [clsName containsString:@"Shorts"] || [clsName containsString:@"Horizontal"] || [clsName containsString:@"_AS"]) {\n'
+              '            NSString *cellID = cell.accessibilityIdentifier ?: @"<nil>";\n'
+              '            NSString *nodeID = @"<no-node>";\n'
+              '            NSString *nodeCls = @"<no-node>";\n'
+              '            if ([cell respondsToSelector:@selector(node)]) {\n'
+              '                id node = [(id)cell node];\n'
+              '                if (node) {\n'
+              '                    nodeCls = NSStringFromClass([node class]);\n'
+              '                    if ([node respondsToSelector:@selector(accessibilityIdentifier)]) {\n'
+              '                        nodeID = [node accessibilityIdentifier] ?: @"<nil>";\n'
+              '                    }\n'
+              '                }\n'
+              '            }\n'
+              '            NSLog(@"[YTLite-DIAG] row=%ld cellCls=%@ cellID=%@ nodeCls=%@ nodeID=%@", (long)indexPath.row, clsName, cellID, nodeCls, nodeID);\n'
+              '        }\n'
+              '    }\n'
+          )
+          p.write_text(src.replace(anchor, injected))
+          print("Injected diagnostic NSLog into YTAsyncCollectionView.cellForItemAtIndexPath")
           PY
 
       - name: Install roothide stub headers
@@ -395,25 +443,25 @@ jobs:
             fi
           done
 
-          cyan -i youtube.ipa -o YouTubePlus_${{ inputs.tweak_version }}.ipa -uwef $tweaks -n "${{ inputs.display_name }}" -b ${{ inputs.bundle_id }}
+          cyan -i youtube.ipa -o YouTubeDiag_${{ inputs.tweak_version }}.ipa -uwef $tweaks -n "${{ inputs.display_name }}" -b ${{ inputs.bundle_id }}
 
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ytp-${{ github.run_number }}
-          name: YouTubePlus v${{ inputs.tweak_version }} (${{ github.run_number }})
-          files: YouTubePlus_${{ inputs.tweak_version }}.ipa
+          tag_name: ytp-diag-${{ github.run_number }}
+          name: "YouTubePlus DIAG v${{ inputs.tweak_version }} (${{ github.run_number }})"
+          body: "Diagnostic build — temporary NSLog hook to capture YT 21.x cell class info. Filter Console.app by 'YTLite-DIAG'. Bundle id .altstore.diag so it coexists with stable YouTube+."
+          files: YouTubeDiag_${{ inputs.tweak_version }}.ipa
           draft: false
 
-      - name: Update apps.json for AltStore source
+      - name: Update apps.json (DIAG entry — apps[1])
         run: |
-          IPA="${{ github.workspace }}/YouTubePlus_${{ inputs.tweak_version }}.ipa"
+          IPA="${{ github.workspace }}/YouTubeDiag_${{ inputs.tweak_version }}.ipa"
           SIZE=$(stat -f%z "$IPA")
-          URL="https://github.com/${{ github.repository }}/releases/download/ytp-${{ github.run_number }}/YouTubePlus_${{ inputs.tweak_version }}.ipa"
+          URL="https://github.com/${{ github.repository }}/releases/download/ytp-diag-${{ github.run_number }}/YouTubeDiag_${{ inputs.tweak_version }}.ipa"
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           # Extract actual version + bundle ID from the IPA's Info.plist
-          # (CFBundleShortVersionString is YouTube's version, not the tweak's)
           rm -rf /tmp/ipa-extract && mkdir -p /tmp/ipa-extract
           unzip -q -o "$IPA" 'Payload/*/Info.plist' -d /tmp/ipa-extract
           PLIST=$(ls /tmp/ipa-extract/Payload/*/Info.plist | head -1)
@@ -421,7 +469,8 @@ jobs:
           REAL_BID=$(plutil -extract CFBundleIdentifier raw "$PLIST")
           echo "IPA version: $REAL_VERSION, bundle: $REAL_BID"
 
-          # Compose versionDescription from actual integrations + tweak version
+          # Compose versionDescription with explicit [DIAG] prefix so it's
+          # unambiguous which entry is which in AltStore.
           INTS=()
           [ "${{ inputs.enable_youpip }}" = "true" ] && INTS+=("YouPiP")
           [ "${{ inputs.enable_ytuhd }}"  = "true" ] && INTS+=("YTUHD")
@@ -433,10 +482,13 @@ jobs:
           else
             INT_LIST=$(IFS=, ; echo "${INTS[*]}" | sed 's/,/, /g')
           fi
-          DESC="[STABLE ytp-${{ github.run_number }}] YouTube ${REAL_VERSION} + YTLite v${{ inputs.tweak_version }} (${INT_LIST}). Built ${DATE}."
+          DESC="[DIAG ytp-diag-${{ github.run_number }}] YouTube ${REAL_VERSION} + YTLite v${{ inputs.tweak_version }} (${INT_LIST}). NSLog capture build — filter Console.app by YTLite-DIAG. Built ${DATE}."
           echo "Description: $DESC"
 
           cd ${{ github.workspace }}/main
+          # Update apps[1] (diagnostic). If apps[1] doesn't exist yet, jq
+          # creates it as a new entry. We also seed the static fields the
+          # first time so AltStore renders the entry properly.
           jq --arg v "$REAL_VERSION" \
              --arg url "$URL" \
              --arg date "$DATE" \
@@ -444,13 +496,17 @@ jobs:
              --arg bid "$REAL_BID" \
              --arg name "${{ inputs.display_name }}" \
              --arg desc "$DESC" \
-             '.apps[0].version = $v
-              | .apps[0].downloadURL = $url
-              | .apps[0].versionDate = $date
-              | .apps[0].size = $size
-              | .apps[0].bundleIdentifier = $bid
-              | .apps[0].name = $name
-              | .apps[0].versionDescription = $desc' \
+             '.apps[1].name = $name
+              | .apps[1].bundleIdentifier = $bid
+              | .apps[1].developerName = "Jake (YTLite fork — DIAG)"
+              | .apps[1].version = $v
+              | .apps[1].versionDate = $date
+              | .apps[1].size = $size
+              | .apps[1].downloadURL = $url
+              | .apps[1].versionDescription = $desc
+              | .apps[1].localizedDescription = "Diagnostic build of YouTube+. Identical features to the stable entry, plus a temporary NSLog hook that prints cell class info to the iOS system log (filter Console.app by YTLite-DIAG) so the maintainer can identify how YT 21.x labels shorts shelves. Different bundle id from the stable build — both can be installed side by side."
+              | .apps[1].iconURL = "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png"
+              | .apps[1].tintColor = "FFAA00"' \
              apps.json > apps.json.new
           mv apps.json.new apps.json
 
@@ -460,11 +516,11 @@ jobs:
           if git diff --cached --quiet; then
             echo "No apps.json changes"
           else
-            git commit -m "Update apps.json for ytp-${{ github.run_number }}"
+            git commit -m "Update apps.json for ytp-diag-${{ github.run_number }}"
             git push || (git pull --rebase --autostash && git push)
           fi
 
       - name: Output Release URL
         run: |
-          echo "::notice::Release available at: https://github.com/${{ github.repository }}/releases/tag/ytp-${{ github.run_number }}"
+          echo "::notice::Release available at: https://github.com/${{ github.repository }}/releases/tag/ytp-diag-${{ github.run_number }}"
           echo "::notice::AltStore source URL: https://raw.githubusercontent.com/${{ github.repository }}/main/apps.json"

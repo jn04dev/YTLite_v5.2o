@@ -318,7 +318,7 @@ jobs:
               '                }\n'
               '            }\n'
               '        }\n'
-              '        _yld(@"[YT] row=%ld cellCls=%@ cellID=%@ nodeCls=%@ nodeID=%@", (long)indexPath.row, cellCls, cellID, nodeCls, nodeID);\n'
+              '        _yld(@"[YT] sec=%ld row=%ld cellCls=%@ cellID=%@ nodeCls=%@ nodeID=%@", (long)indexPath.section, (long)indexPath.row, cellCls, cellID, nodeCls, nodeID);\n'
               '    }\n'
           )
           src = src.replace(anchor1, injected1)
@@ -349,7 +349,7 @@ jobs:
               '                }\n'
               '            }\n'
               '        }\n'
-              '        _yld(@"[AS] viewCls=%@ row=%ld cellCls=%@ cellID=%@ nodeCls=%@ nodeID=%@", viewCls, (long)indexPath.row, cellCls, cellID, nodeCls, nodeID);\n'
+              '        _yld(@"[AS] viewCls=%@ sec=%ld row=%ld cellCls=%@ cellID=%@ nodeCls=%@ nodeID=%@", viewCls, (long)indexPath.section, (long)indexPath.row, cellCls, cellID, nodeCls, nodeID);\n'
               '    }\n'
               '    return cell;\n'
               '}\n'
@@ -383,7 +383,33 @@ jobs:
               '            }\n'
               '        }\n'
               '    }\n'
-              '    _yld(@"[DEQ] viewCls=%@ reuseID=%@ row=%ld sec=%ld cellCls=%@ nodeCls=%@ nodeID=%@", viewCls, identifier, (long)indexPath.row, (long)indexPath.section, cellCls, nodeCls, nodeID);\n'
+              '    _yld(@"[DEQ] viewCls=%@ reuseID=%@ sec=%ld row=%ld cellCls=%@ nodeCls=%@ nodeID=%@", viewCls, identifier, (long)indexPath.section, (long)indexPath.row, cellCls, nodeCls, nodeID);\n'
+              '\n'
+              '    // [YTLite-DIAG] Async followup: at dequeue time the node has not yet\n'
+              '    // been bound to the cell, so [cell node] returns nil. Re-check on the\n'
+              '    // next main-queue tick when binding is complete to capture the actual\n'
+              '    // ASCellNode subclass. Captured via weak ref so we do not retain the\n'
+              '    // cell beyond the queue cycle.\n'
+              '    if (cell && [cell respondsToSelector:@selector(node)]) {\n'
+              '        NSInteger sec = indexPath.section;\n'
+              '        NSInteger row = indexPath.row;\n'
+              '        NSString *rid = identifier ? [identifier copy] : @"<nil>";\n'
+              '        NSString *vcls = viewCls ? [viewCls copy] : @"<nil>";\n'
+              '        __weak UICollectionViewCell *weakCell = cell;\n'
+              '        dispatch_async(dispatch_get_main_queue(), ^{\n'
+              '            UICollectionViewCell *c = weakCell;\n'
+              '            if (!c) return;\n'
+              '            if (![c respondsToSelector:@selector(node)]) return;\n'
+              '            id node = [(id)c node];\n'
+              '            if (!node) return;\n'
+              '            NSString *ncls = NSStringFromClass([node class]);\n'
+              '            NSString *nid = @"<nil>";\n'
+              '            if ([node respondsToSelector:@selector(accessibilityIdentifier)]) {\n'
+              '                nid = [node accessibilityIdentifier] ?: @"<nil>";\n'
+              '            }\n'
+              '            _yld(@"[NDQ] viewCls=%@ reuseID=%@ sec=%ld row=%ld nodeCls=%@ nodeID=%@", vcls, rid, (long)sec, (long)row, ncls, nid);\n'
+              '        });\n'
+              '    }\n'
               '    return cell;\n'
               '}\n'
               '%end\n'
@@ -419,7 +445,7 @@ jobs:
           src = src.rstrip() + '\n' + ctor_block
 
           p.write_text(src)
-          print("Diagnostic file-based logging hooks injected: _yld() helper + YTAsyncCollectionView (unfiltered) + ASCollectionView (additional) + UICollectionView (catchall) + %ctor verification with class-existence checks")
+          print("Diagnostic file-based logging hooks injected: _yld() helper + YTAsyncCollectionView (with section) + ASCollectionView (with section) + UICollectionView catchall with [NDQ] async followup for post-binding node class + %ctor verification with class-existence checks")
           PY
 
       - name: Install roothide stub headers

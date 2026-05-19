@@ -440,54 +440,63 @@ jobs:
               '    _yld(@"[CTRL] cls YTHorizontalButtonListCell: %@", objc_lookUpClass("YTHorizontalButtonListCell") ? @"FOUND" : @"NIL");\n'
               '    _yld(@"[CTRL] cls YTFeedEntryCell: %@", objc_lookUpClass("YTFeedEntryCell") ? @"FOUND" : @"NIL");\n'
               '    _yld(@"[CTRL] cls YTVideoFeedEntryCell: %@", objc_lookUpClass("YTVideoFeedEntryCell") ? @"FOUND" : @"NIL");\n'
+              '    {\n'
+              '        Class _yer = objc_lookUpClass("YTIElementRenderer");\n'
+              '        if (_yer) {\n'
+              '            unsigned int _cnt = 0;\n'
+              '            Method *_ml = class_copyMethodList(_yer, &_cnt);\n'
+              '            _yld(@"[CTRL] YTIElementRenderer direct methods (count=%u, parent=%@):", _cnt, NSStringFromClass([_yer superclass]));\n'
+              '            for (unsigned int i = 0; i < _cnt; i++) {\n'
+              '                _yld(@"[CTRL]   - %@", NSStringFromSelector(method_getName(_ml[i])));\n'
+              '            }\n'
+              '            if (_ml) free(_ml);\n'
+              '        }\n'
+              '    }\n'
               '}\n'
           )
           src = src.rstrip() + '\n' + ctor_block
 
-          # Injection 5: hook YTIElementRenderer.description and log every unique
-          # description string exactly once. The renderer description is the
-          # discriminator we need to identify shorts shelf vs other ELM cells —
-          # YTLite's existing elementData hook already uses [self description]
-          # for token matching ("shorts_shelf.eml" etc.), but we never see those
-          # strings because they live one level below the node we currently log.
-          # Coexists with YTLite's existing %hook YTIElementRenderer block
-          # because Theos allows multiple %hook blocks per class as long as
-          # they cover different methods.
-          elm_desc_hook = (
-              '\n'
-              '// [YTLite-DIAG] TEMPORARY hook on YTIElementRenderer.description.\n'
-              '// Dedupes via a static NSMutableSet so each unique description\n'
-              '// is logged exactly once. Result: a flat list of every server-\n'
-              '// driven element type used in YT 21.x. The shorts shelf will\n'
-              '// appear as something containing "shorts" or "reel" — that string\n'
-              '// is the discriminator for the targeted removal fix.\n'
-              '%hook YTIElementRenderer\n'
-              '- (NSString *)description {\n'
-              '    NSString *desc = %orig;\n'
-              '    if (desc) {\n'
-              '        static NSMutableSet *_elm_seen = nil;\n'
-              '        static NSLock *_elm_lock = nil;\n'
-              '        static dispatch_once_t _elm_once;\n'
-              '        dispatch_once(&_elm_once, ^{\n'
-              '            _elm_seen = [NSMutableSet set];\n'
-              '            _elm_lock = [[NSLock alloc] init];\n'
+          # Injection 5: log every unique description value seen inside the
+          # existing YTIElementRenderer.elementData hook. ytp-diag-9 attempted
+          # this via a separate %hook YTIElementRenderer description block but
+          # got zero output across 646 captured lines. Hypothesis: YTIElementRenderer
+          # extends GPBMessage; description is inherited from the protobuf base,
+          # and Substrate's %hook may not correctly bind an inherited method on
+          # a subclass when nothing on the subclass shadows it. Injecting INSIDE
+          # the existing %hook YTIElementRenderer { elementData } block is a
+          # known-working surface that calls [self description] unconditionally
+          # at the top — if elementData fires at all in YT 21.x, this captures
+          # the discriminator strings directly.
+          anchor5 = "    NSString *description = [self description];\n"
+          if anchor5 not in src:
+              raise SystemExit("elementData anchor for ELMD injection not found")
+          if src.count(anchor5) != 1:
+              raise SystemExit("elementData anchor not unique; refusing to inject")
+          elmd_inject = (
+              anchor5
+              + '\n'
+              '    // [YTLite-DIAG] TEMPORARY: dedupe-log every unique description value.\n'
+              '    if (description) {\n'
+              '        static NSMutableSet *_elmd_seen = nil;\n'
+              '        static NSLock *_elmd_lock = nil;\n'
+              '        static dispatch_once_t _elmd_once;\n'
+              '        dispatch_once(&_elmd_once, ^{\n'
+              '            _elmd_seen = [NSMutableSet set];\n'
+              '            _elmd_lock = [[NSLock alloc] init];\n'
               '        });\n'
-              '        [_elm_lock lock];\n'
-              '        BOOL isNew = ![_elm_seen containsObject:desc];\n'
-              '        if (isNew) [_elm_seen addObject:[desc copy]];\n'
-              '        [_elm_lock unlock];\n'
-              '        if (isNew) {\n'
-              '            _yld(@"[ELM] desc=%@", desc);\n'
+              '        [_elmd_lock lock];\n'
+              '        BOOL _isNew = ![_elmd_seen containsObject:description];\n'
+              '        if (_isNew) [_elmd_seen addObject:[description copy]];\n'
+              '        [_elmd_lock unlock];\n'
+              '        if (_isNew) {\n'
+              '            _yld(@"[ELMD] desc=%@", description);\n'
               '        }\n'
               '    }\n'
-              '    return desc;\n'
-              '}\n'
-              '%end\n'
           )
-          src = src.rstrip() + '\n' + elm_desc_hook
+          src = src.replace(anchor5, elmd_inject)
 
           p.write_text(src)
-          print("Diagnostic file-based logging hooks injected: _yld() helper + YTAsyncCollectionView (with section) + ASCollectionView (with section) + UICollectionView catchall with [NDQ] async followup for post-binding node class + %ctor verification with class-existence checks + YTIElementRenderer.description deduped logging")
+          print("Diagnostic file-based logging hooks injected: _yld() helper + YTAsyncCollectionView (with section) + ASCollectionView (with section) + UICollectionView catchall with [NDQ] async followup for post-binding node class + %ctor verification with class-existence checks + ELMD dedupe-log inside existing elementData hook")
           PY
 
       - name: Install roothide stub headers

@@ -357,8 +357,69 @@ jobs:
           )
           src = src.rstrip() + '\n' + new_hook
 
+          # Injection 3: append UICollectionView base-class dequeue hook (the catchall).
+          # Every collection-view subclass inherits this method, including ASCollectionView
+          # and any YT custom class. If a collection view dequeues a cell on screen, this
+          # hook sees it. Filter offline by viewCls to find the home-feed class.
+          catchall = (
+              '\n'
+              '// [YTLite-DIAG] TEMPORARY catchall hook on UICollectionView base class.\n'
+              '// Every UICollectionView subclass uses this dequeue method, so this is\n'
+              '// the broadest possible net for cell rendering. Logs view class, reuse\n'
+              '// identifier, indexPath, cell class, and node class if present.\n'
+              '%hook UICollectionView\n'
+              '- (UICollectionViewCell *)dequeueReusableCellWithReuseIdentifier:(NSString *)identifier forIndexPath:(NSIndexPath *)indexPath {\n'
+              '    UICollectionViewCell *cell = %orig;\n'
+              '    NSString *viewCls = NSStringFromClass([self class]);\n'
+              '    NSString *cellCls = cell ? NSStringFromClass([cell class]) : @"<nil>";\n'
+              '    NSString *nodeCls = @"<no-node>";\n'
+              '    NSString *nodeID = @"<no-node>";\n'
+              '    if (cell && [cell respondsToSelector:@selector(node)]) {\n'
+              '        id node = [(id)cell node];\n'
+              '        if (node) {\n'
+              '            nodeCls = NSStringFromClass([node class]);\n'
+              '            if ([node respondsToSelector:@selector(accessibilityIdentifier)]) {\n'
+              '                nodeID = [node accessibilityIdentifier] ?: @"<nil>";\n'
+              '            }\n'
+              '        }\n'
+              '    }\n'
+              '    _yld(@"[DEQ] viewCls=%@ reuseID=%@ row=%ld sec=%ld cellCls=%@ nodeCls=%@ nodeID=%@", viewCls, identifier, (long)indexPath.row, (long)indexPath.section, cellCls, nodeCls, nodeID);\n'
+              '    return cell;\n'
+              '}\n'
+              '%end\n'
+          )
+          src = src.rstrip() + '\n' + catchall
+
+          # Injection 4: %ctor block to verify dylib loads + class-existence diagnostics.
+          # Calls _yld_init() explicitly so the log file is guaranteed to exist whether
+          # or not any %hook fires. objc_lookUpClass tells us which target classes are
+          # actually present in YT 21.x at runtime so we can rule out renamed classes.
+          ctor_block = (
+              '\n'
+              '// [YTLite-DIAG] TEMPORARY ctor: writes startup marker + class-existence\n'
+              '// diagnostics. If the log file exists with these CTRL lines but no DEQ\n'
+              '// or YT/AS lines from scrolling, the dylib loaded but the home feed is\n'
+              '// not going through UICollectionView dequeue at all.\n'
+              '%ctor {\n'
+              '    _yld_init();\n'
+              '    _yld(@"[CTRL] ytlite tweak ctor fired pid=%d", getpid());\n'
+              '    _yld(@"[CTRL] cls YTAsyncCollectionView: %@", objc_lookUpClass("YTAsyncCollectionView") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls ASCollectionView: %@", objc_lookUpClass("ASCollectionView") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls UICollectionView: %@", objc_lookUpClass("UICollectionView") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls _ASCollectionViewCell: %@", objc_lookUpClass("_ASCollectionViewCell") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls YTReelShelfCell: %@", objc_lookUpClass("YTReelShelfCell") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls YTHorizontalShelfCell: %@", objc_lookUpClass("YTHorizontalShelfCell") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls YTShelfCell: %@", objc_lookUpClass("YTShelfCell") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls YTHorizontalCardListCell: %@", objc_lookUpClass("YTHorizontalCardListCell") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls YTHorizontalButtonListCell: %@", objc_lookUpClass("YTHorizontalButtonListCell") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls YTFeedEntryCell: %@", objc_lookUpClass("YTFeedEntryCell") ? @"FOUND" : @"NIL");\n'
+              '    _yld(@"[CTRL] cls YTVideoFeedEntryCell: %@", objc_lookUpClass("YTVideoFeedEntryCell") ? @"FOUND" : @"NIL");\n'
+              '}\n'
+          )
+          src = src.rstrip() + '\n' + ctor_block
+
           p.write_text(src)
-          print("Diagnostic file-based logging hooks injected: _yld() helper + YTAsyncCollectionView (unfiltered) + ASCollectionView (additional)")
+          print("Diagnostic file-based logging hooks injected: _yld() helper + YTAsyncCollectionView (unfiltered) + ASCollectionView (additional) + UICollectionView (catchall) + %ctor verification with class-existence checks")
           PY
 
       - name: Install roothide stub headers

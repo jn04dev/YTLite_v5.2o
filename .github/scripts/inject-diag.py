@@ -354,5 +354,60 @@ new_tokens = '    NSArray *shortsToRemove = @[@"shorts_shelf.eml", @"shorts_vide
 if old_tokens in src:
     src = src.replace(old_tokens, new_tokens)
 
+# Injection 7: section-list filter for shorts shelves.
+# diag-13 SZE2 capture confirmed ELMElement is an ObjC wrapper around C++ proto
+# types (_root : shared_ptr<youtube::elements::Element>) so [element description]
+# does NOT contain the shorts tokens we identified. The renderer's description IS
+# still reachable at the section list layer though: YTIItemSectionSupportedRenderers
+# has a direct elementRenderer property (per YouTubeHeader). Extend the existing
+# YTSectionListViewController.loadWithModel: filter (currently only removes
+# promoted/ad sections) to also remove sections whose first item's
+# elementRenderer.description matches our two tight shorts tokens.
+section_anchor = (
+    '%hook YTSectionListViewController\n'
+    '- (void)loadWithModel:(YTISectionListRenderer *)model {\n'
+    '    if (ytlBool(@"noAds")) {\n'
+    '        NSMutableArray <YTISectionListSupportedRenderers *> *contentsArray = model.contentsArray;\n'
+    '        NSIndexSet *removeIndexes = [contentsArray indexesOfObjectsPassingTest:^BOOL(YTISectionListSupportedRenderers *renderers, NSUInteger idx, BOOL *stop) {\n'
+    '            YTIItemSectionRenderer *sectionRenderer = renderers.itemSectionRenderer;\n'
+    '            YTIItemSectionSupportedRenderers *firstObject = [sectionRenderer.contentsArray firstObject];\n'
+    '            return firstObject.hasPromotedVideoRenderer || firstObject.hasCompactPromotedVideoRenderer || firstObject.hasPromotedVideoInlineMutedRenderer;\n'
+    '        }];\n'
+    '        [contentsArray removeObjectsAtIndexes:removeIndexes];\n'
+    '    } %orig;\n'
+    '}\n'
+    '%end'
+)
+if section_anchor not in src:
+    raise SystemExit("YTSectionListViewController hook anchor not found")
+section_replace = (
+    '%hook YTSectionListViewController\n'
+    '- (void)loadWithModel:(YTISectionListRenderer *)model {\n'
+    '    BOOL _ytlNoAds = ytlBool(@"noAds");\n'
+    '    BOOL _ytlHideShorts = ytlBool(@"hideShorts");\n'
+    '    if (_ytlNoAds || _ytlHideShorts) {\n'
+    '        NSMutableArray <YTISectionListSupportedRenderers *> *contentsArray = model.contentsArray;\n'
+    '        NSIndexSet *removeIndexes = [contentsArray indexesOfObjectsPassingTest:^BOOL(YTISectionListSupportedRenderers *renderers, NSUInteger idx, BOOL *stop) {\n'
+    '            YTIItemSectionRenderer *sectionRenderer = renderers.itemSectionRenderer;\n'
+    '            YTIItemSectionSupportedRenderers *firstObject = [sectionRenderer.contentsArray firstObject];\n'
+    '            if (_ytlNoAds && (firstObject.hasPromotedVideoRenderer || firstObject.hasCompactPromotedVideoRenderer || firstObject.hasPromotedVideoInlineMutedRenderer)) {\n'
+    '                return YES;\n'
+    '            }\n'
+    '            if (_ytlHideShorts && firstObject.elementRenderer) {\n'
+    '                NSString *_slfDesc = [firstObject.elementRenderer description];\n'
+    '                if (_slfDesc && ([_slfDesc containsString:@"youtube_shorts_24"] || [_slfDesc containsString:@"shorts_grid_shelf_footer"])) {\n'
+    '                    _yld(@"[SLF] removing section idx=%lu matched-shorts-token", (unsigned long)idx);\n'
+    '                    return YES;\n'
+    '                }\n'
+    '            }\n'
+    '            return NO;\n'
+    '        }];\n'
+    '        [contentsArray removeObjectsAtIndexes:removeIndexes];\n'
+    '    } %orig;\n'
+    '}\n'
+    '%end'
+)
+src = src.replace(section_anchor, section_replace)
+
 p.write_text(src)
-print("Diagnostic injections applied: helper + YT/AS/DEQ/NDQ logging + %ctor with class chains + ELMD + SZE2 with elem ivar dump + token extension")
+print("Diagnostic injections applied: helper + YT/AS/DEQ/NDQ logging + %ctor with class chains + ELMD + SZE2 with elem ivar dump + token extension + section-list shorts filter (SLF)")

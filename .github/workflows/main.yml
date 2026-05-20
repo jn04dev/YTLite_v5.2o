@@ -215,10 +215,10 @@ jobs:
           print("Patched Settings.x: YTLite section now inserts unconditionally")
           PY
 
-      - name: Patch YTLite.x to extend shorts token list for YT 21.x
+      - name: Patch YTLite.x for YT 21.x shorts shelf (tokens + size collapse)
         run: |
-          # YT 21.x restructured the shorts shelf into three separate
-          # element renderer types instead of a single wrapper:
+          # YT 21.x restructured the shorts shelf into three separate element
+          # renderer types instead of a single wrapper:
           #   1. Header — shelf_header.eml-fe (generic, shared with other
           #      shelves like recommended channels) PLUS youtube_shorts_24
           #      (an icon resource reference unique to shorts shelf headers).
@@ -227,30 +227,68 @@ jobs:
           #      ".eml" is a prefix of ".eml-fe").
           #   3. Footer — shorts_grid_shelf_footer.eml-fe (unique to shorts).
           #
-          # The legacy "shorts_shelf.eml" token has no match in 21.x — there
-          # is no single wrapper element anymore. The legacy cell-removal
-          # paths in YTLite.x (YTAsyncCollectionView.cellForItemAtIndexPath
-          # checking accessibilityIdentifier "eml.shorts-grid"/"eml.shorts-shelf"
-          # and class kind YTReelShelfCell) are also dead — accessibility
-          # identifiers are nil on most ELMCellNodes in 21.x, and YTReelShelfCell
-          # is retired (confirmed via ytp-diag CTRL diagnostics).
+          # Patch A — extend shortsToRemove token list in the elementData hook.
+          # Nullifies the renderer's data so content disappears. By itself this
+          # leaves blank cells in the layout (confirmed empirically on ytp-18:
+          # banners + thumbnails gone, wrapper rows persist as blank space).
           #
-          # The two new tokens added below ride on the existing elementData
-          # nullify path. Both were identified empirically via ytp-diag-10's
-          # ELMD dedupe-log capture of unique YTIElementRenderer description
-          # values. Tokens are scoped tightly — youtube_shorts_24 appears only
-          # in shorts headers, shorts_grid_shelf_footer only in shorts footers.
-          # See [[PIC - YT 21.x Shorts Shelf Cell Identification]] for details.
+          # Patch B — collapse blank wrapper cells to CGSizeZero. Rides on
+          # YTLite's existing findCell() recursive descent (YTLite.x:650-676)
+          # and the existing %hook ASCollectionView sizeForElement: pattern
+          # (YTLite.x:678-699). Inserts a new branch at the top of the hook
+          # that checks the cell's ELM children's descriptions for shorts
+          # tokens via findCell, returning CGSizeZero on match. Gated on the
+          # hideShorts user-default like the elementData path, so toggle OFF
+          # leaves layout unchanged.
+          #
+          # The legacy YT 18.x cell-removal paths (cellForItemAtIndexPath
+          # checking accessibilityIdentifier "eml.shorts-grid"/"eml.shorts-shelf",
+          # and class kind YTReelShelfCell) are dead in 21.x — confirmed via
+          # ytp-diag CTRL diagnostics. Leaving them in place as harmless dead
+          # code; they may re-activate if YT ever reverts.
+          #
+          # Tokens identified via ytp-diag-10 ELMD dedupe-log capture; size
+          # collapse mechanism validated against existing YTLite precedent.
+          # See [[PIC - YT 21.x Shorts Shelf Cell Identification]].
           python3 - <<'PY'
           import pathlib
           p = pathlib.Path("${{ github.workspace }}/theos/include/YTLite/YTLite.x")
           src = p.read_text()
-          old = '    NSArray *shortsToRemove = @[@"shorts_shelf.eml", @"shorts_video_cell.eml", @"6Shorts"];'
-          new = '    NSArray *shortsToRemove = @[@"shorts_shelf.eml", @"shorts_video_cell.eml", @"6Shorts", @"shorts_grid_shelf_footer", @"youtube_shorts_24"];'
-          if old not in src:
+
+          # Patch A: extend shortsToRemove tokens
+          old_tokens = '    NSArray *shortsToRemove = @[@"shorts_shelf.eml", @"shorts_video_cell.eml", @"6Shorts"];'
+          new_tokens = '    NSArray *shortsToRemove = @[@"shorts_shelf.eml", @"shorts_video_cell.eml", @"6Shorts", @"shorts_grid_shelf_footer", @"youtube_shorts_24"];'
+          if old_tokens not in src:
               raise SystemExit("shortsToRemove anchor not found in YTLite.x; source may have changed")
-          p.write_text(src.replace(old, new))
-          print("Patched YTLite.x: shortsToRemove now includes shorts_grid_shelf_footer + youtube_shorts_24 for YT 21.x")
+          src = src.replace(old_tokens, new_tokens)
+
+          # Patch B: insert size-collapse branch at top of sizeForElement
+          old_size = (
+              '%hook ASCollectionView\n'
+              '- (CGSize)sizeForElement:(ASCollectionElement *)element {\n'
+              '    if ([self.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"]) {'
+          )
+          new_size = (
+              '%hook ASCollectionView\n'
+              '- (CGSize)sizeForElement:(ASCollectionElement *)element {\n'
+              '    // YT 21.x shorts shelf size collapse — kills blank wrapper rows whose\n'
+              '    // content was nullified by the elementData hook above. Uses the same\n'
+              '    // findCell ELM-descent pattern as the existing player-bar collapses.\n'
+              '    if (ytlBool(@"hideShorts")) {\n'
+              '        ASCellNode *node = [element node];\n'
+              '        ASNodeController *nodeController = [node controller];\n'
+              '        if (nodeController && findCell(nodeController, @[@"shorts_video_cell.eml", @"shorts_grid_shelf_footer", @"youtube_shorts_24"])) {\n'
+              '            return CGSizeZero;\n'
+              '        }\n'
+              '    }\n'
+              '    if ([self.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"]) {'
+          )
+          if old_size not in src:
+              raise SystemExit("sizeForElement anchor not found in YTLite.x; source may have changed")
+          src = src.replace(old_size, new_size)
+
+          p.write_text(src)
+          print("Patched YTLite.x: extended shortsToRemove tokens + added sizeForElement CGSizeZero collapse for YT 21.x shorts shelf")
           PY
 
       - name: Install roothide stub headers

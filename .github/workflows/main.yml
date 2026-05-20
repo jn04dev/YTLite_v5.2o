@@ -215,6 +215,44 @@ jobs:
           print("Patched Settings.x: YTLite section now inserts unconditionally")
           PY
 
+      - name: Patch YTLite.x to extend shorts token list for YT 21.x
+        run: |
+          # YT 21.x restructured the shorts shelf into three separate
+          # element renderer types instead of a single wrapper:
+          #   1. Header — shelf_header.eml-fe (generic, shared with other
+          #      shelves like recommended channels) PLUS youtube_shorts_24
+          #      (an icon resource reference unique to shorts shelf headers).
+          #   2. Inner video cells — shorts_video_cell.eml-fe (already matched
+          #      via existing "shorts_video_cell.eml" containsString token,
+          #      ".eml" is a prefix of ".eml-fe").
+          #   3. Footer — shorts_grid_shelf_footer.eml-fe (unique to shorts).
+          #
+          # The legacy "shorts_shelf.eml" token has no match in 21.x — there
+          # is no single wrapper element anymore. The legacy cell-removal
+          # paths in YTLite.x (YTAsyncCollectionView.cellForItemAtIndexPath
+          # checking accessibilityIdentifier "eml.shorts-grid"/"eml.shorts-shelf"
+          # and class kind YTReelShelfCell) are also dead — accessibility
+          # identifiers are nil on most ELMCellNodes in 21.x, and YTReelShelfCell
+          # is retired (confirmed via ytp-diag CTRL diagnostics).
+          #
+          # The two new tokens added below ride on the existing elementData
+          # nullify path. Both were identified empirically via ytp-diag-10's
+          # ELMD dedupe-log capture of unique YTIElementRenderer description
+          # values. Tokens are scoped tightly — youtube_shorts_24 appears only
+          # in shorts headers, shorts_grid_shelf_footer only in shorts footers.
+          # See [[PIC - YT 21.x Shorts Shelf Cell Identification]] for details.
+          python3 - <<'PY'
+          import pathlib
+          p = pathlib.Path("${{ github.workspace }}/theos/include/YTLite/YTLite.x")
+          src = p.read_text()
+          old = '    NSArray *shortsToRemove = @[@"shorts_shelf.eml", @"shorts_video_cell.eml", @"6Shorts"];'
+          new = '    NSArray *shortsToRemove = @[@"shorts_shelf.eml", @"shorts_video_cell.eml", @"6Shorts", @"shorts_grid_shelf_footer", @"youtube_shorts_24"];'
+          if old not in src:
+              raise SystemExit("shortsToRemove anchor not found in YTLite.x; source may have changed")
+          p.write_text(src.replace(old, new))
+          print("Patched YTLite.x: shortsToRemove now includes shorts_grid_shelf_footer + youtube_shorts_24 for YT 21.x")
+          PY
+
       - name: Install roothide stub headers
         run: |
           mkdir -p "$THEOS/include/roothide"

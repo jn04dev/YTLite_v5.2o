@@ -452,6 +452,23 @@ jobs:
               '            if (_ml) free(_ml);\n'
               '        }\n'
               '    }\n'
+              '    {\n'
+              '        NSArray *_chainClasses = @[@"YTAsyncCollectionView", @"ASCollectionView", @"ELMCellNode", @"ELMNodeController", @"ELMContainerNode"];\n'
+              '        for (NSString *clsName in _chainClasses) {\n'
+              '            Class _c = objc_lookUpClass([clsName UTF8String]);\n'
+              '            if (!_c) {\n'
+              '                _yld(@"[CTRL] chain %@: NOT FOUND", clsName);\n'
+              '                continue;\n'
+              '            }\n'
+              '            NSMutableArray *_chain = [NSMutableArray array];\n'
+              '            Class _walk = _c;\n'
+              '            while (_walk) {\n'
+              '                [_chain addObject:NSStringFromClass(_walk)];\n'
+              '                _walk = class_getSuperclass(_walk);\n'
+              '            }\n'
+              '            _yld(@"[CTRL] chain %@: %@", clsName, [_chain componentsJoinedByString:@" -> "]);\n'
+              '        }\n'
+              '    }\n'
               '}\n'
           )
           src = src.rstrip() + '\n' + ctor_block
@@ -495,8 +512,85 @@ jobs:
           )
           src = src.replace(anchor5, elmd_inject)
 
+          # Injection 6: instrument existing %hook ASCollectionView sizeForElement
+          # to log every call's viewCls/nodeCls/ncCls + findCell result for shorts
+          # tokens (deduped per unique combination), plus a one-shot ivar list dump
+          # per unique node class so we can find a renderer-pointer ivar on ELMCellNode.
+          # ytp-20 added a CGSizeZero return based on findCell match, but cells still
+          # persist as blank vertical space on the "All" tab — meaning either (a) this
+          # hook doesn't fire for home feed cells (YTAsyncCollectionView may not be a
+          # subclass of ASCollectionView, or YT overrides the sizing path entirely),
+          # or (b) findCell descends through the cell but doesn't find the shorts
+          # tokens (likely because elementData already nullified the data and the ELM
+          # children are now empty). The [SZE] lines will show which.
+          anchor6 = (
+              '%hook ASCollectionView\n'
+              '- (CGSize)sizeForElement:(ASCollectionElement *)element {\n'
+              '    if ([self.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"]) {'
+          )
+          if anchor6 not in src:
+              raise SystemExit("sizeForElement anchor for SZE injection not found")
+          sze_inject = (
+              '%hook ASCollectionView\n'
+              '- (CGSize)sizeForElement:(ASCollectionElement *)element {\n'
+              '    {\n'
+              '        // [YTLite-DIAG] TEMPORARY: log sizeForElement firing + findCell result.\n'
+              '        NSString *_szViewCls = NSStringFromClass([self class]);\n'
+              '        ASCellNode *_szNode = [element node];\n'
+              '        NSString *_szNodeCls = _szNode ? NSStringFromClass([_szNode class]) : @"<nil>";\n'
+              '        ASNodeController *_szNc = nil;\n'
+              '        if (_szNode && [_szNode respondsToSelector:@selector(controller)]) {\n'
+              '            _szNc = [_szNode controller];\n'
+              '        }\n'
+              '        NSString *_szNcCls = _szNc ? NSStringFromClass([_szNc class]) : @"<nil>";\n'
+              '        BOOL _szShortsMatch = NO;\n'
+              '        if (_szNc) {\n'
+              '            @try {\n'
+              '                _szShortsMatch = findCell(_szNc, @[@"shorts_video_cell.eml", @"shorts_grid_shelf_footer", @"youtube_shorts_24"]);\n'
+              '            } @catch (NSException *_e) {\n'
+              '                _szShortsMatch = NO;\n'
+              '            }\n'
+              '        }\n'
+              '        static NSMutableSet *_sze_seen = nil;\n'
+              '        static NSLock *_sze_lock = nil;\n'
+              '        static dispatch_once_t _sze_once;\n'
+              '        dispatch_once(&_sze_once, ^{\n'
+              '            _sze_seen = [NSMutableSet set];\n'
+              '            _sze_lock = [[NSLock alloc] init];\n'
+              '        });\n'
+              '        NSString *_szKey = [NSString stringWithFormat:@"%@|%@|%@|%d", _szViewCls, _szNodeCls, _szNcCls, _szShortsMatch];\n'
+              '        [_sze_lock lock];\n'
+              '        BOOL _szIsNew = ![_sze_seen containsObject:_szKey];\n'
+              '        if (_szIsNew) [_sze_seen addObject:[_szKey copy]];\n'
+              '        [_sze_lock unlock];\n'
+              '        if (_szIsNew) {\n'
+              '            _yld(@"[SZE] viewCls=%@ nodeCls=%@ ncCls=%@ shortsMatch=%@", _szViewCls, _szNodeCls, _szNcCls, _szShortsMatch ? @"YES" : @"NO");\n'
+              '            static NSMutableSet *_nodeIvarsLogged = nil;\n'
+              '            static dispatch_once_t _nivOnce;\n'
+              '            dispatch_once(&_nivOnce, ^{ _nodeIvarsLogged = [NSMutableSet set]; });\n'
+              '            @synchronized(_nodeIvarsLogged) {\n'
+              '                if (_szNode && ![_nodeIvarsLogged containsObject:_szNodeCls]) {\n'
+              '                    [_nodeIvarsLogged addObject:[_szNodeCls copy]];\n'
+              '                    Class _nc = [_szNode class];\n'
+              '                    unsigned int _ivc = 0;\n'
+              '                    Ivar *_ivl = class_copyIvarList(_nc, &_ivc);\n'
+              '                    _yld(@"[SZE] node ivars for %@ (count=%u):", _szNodeCls, _ivc);\n'
+              '                    for (unsigned int i = 0; i < _ivc; i++) {\n'
+              '                        const char *iname = ivar_getName(_ivl[i]);\n'
+              '                        const char *itype = ivar_getTypeEncoding(_ivl[i]);\n'
+              '                        _yld(@"[SZE]   %s : %s", iname ? iname : "?", itype ? itype : "?");\n'
+              '                    }\n'
+              '                    if (_ivl) free(_ivl);\n'
+              '                }\n'
+              '            }\n'
+              '        }\n'
+              '    }\n'
+              '    if ([self.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"]) {'
+          )
+          src = src.replace(anchor6, sze_inject)
+
           p.write_text(src)
-          print("Diagnostic file-based logging hooks injected: _yld() helper + YTAsyncCollectionView (with section) + ASCollectionView (with section) + UICollectionView catchall with [NDQ] async followup for post-binding node class + %ctor verification with class-existence checks + ELMD dedupe-log inside existing elementData hook")
+          print("Diagnostic file-based logging hooks injected: _yld() helper + YT/AS cell logging + UICollectionView catchall with NDQ followup + %ctor verification with class-existence and chain dumps + ELMD inside elementData + SZE inside sizeForElement with node ivar dump")
           PY
 
       - name: Install roothide stub headers

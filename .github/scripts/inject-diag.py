@@ -31,6 +31,7 @@ helper = (
     '#import <unistd.h>\n'
     'static FILE *_yld_fp = NULL;\n'
     'static NSLock *_yld_lock = nil;\n'
+    'static char _ytlite_shorts_assoc_key;\n'
     'static void _yld_init(void) {\n'
     '    static dispatch_once_t once;\n'
     '    dispatch_once(&once, ^{\n'
@@ -340,7 +341,19 @@ sze_inject = (
     '                }\n'
     '            }\n'
     '        }\n'
-    '        if (ytlBool(@"hideShorts") && _szMatched) {\n'
+    '        BOOL _szHasAssoc = NO;\n'
+    '        if (_szElement) {\n'
+    '            @try {\n'
+    '                id _szMark = objc_getAssociatedObject(_szElement, &_ytlite_shorts_assoc_key);\n'
+    '                if ([_szMark isKindOfClass:[NSNumber class]] && [(NSNumber *)_szMark boolValue]) {\n'
+    '                    _szHasAssoc = YES;\n'
+    '                }\n'
+    '            } @catch (NSException *_e) { _szHasAssoc = NO; }\n'
+    '        }\n'
+    '        if (_szIsNew) {\n'
+    '            _yld(@"[SZE2] hasAssoc=%@ for elemCls=%@", _szHasAssoc ? @"YES" : @"NO", _szElemCls);\n'
+    '        }\n'
+    '        if (ytlBool(@"hideShorts") && (_szMatched || _szHasAssoc)) {\n'
     '            return CGSizeZero;\n'
     '        }\n'
     '    }\n'
@@ -354,60 +367,111 @@ new_tokens = '    NSArray *shortsToRemove = @[@"shorts_shelf.eml", @"shorts_vide
 if old_tokens in src:
     src = src.replace(old_tokens, new_tokens)
 
-# Injection 7: section-list filter for shorts shelves.
-# diag-13 SZE2 capture confirmed ELMElement is an ObjC wrapper around C++ proto
-# types (_root : shared_ptr<youtube::elements::Element>) so [element description]
-# does NOT contain the shorts tokens we identified. The renderer's description IS
-# still reachable at the section list layer though: YTIItemSectionSupportedRenderers
-# has a direct elementRenderer property (per YouTubeHeader). Extend the existing
-# YTSectionListViewController.loadWithModel: filter (currently only removes
-# promoted/ad sections) to also remove sections whose first item's
-# elementRenderer.description matches our two tight shorts tokens.
-section_anchor = (
-    '%hook YTSectionListViewController\n'
-    '- (void)loadWithModel:(YTISectionListRenderer *)model {\n'
-    '    if (ytlBool(@"noAds")) {\n'
-    '        NSMutableArray <YTISectionListSupportedRenderers *> *contentsArray = model.contentsArray;\n'
-    '        NSIndexSet *removeIndexes = [contentsArray indexesOfObjectsPassingTest:^BOOL(YTISectionListSupportedRenderers *renderers, NSUInteger idx, BOOL *stop) {\n'
-    '            YTIItemSectionRenderer *sectionRenderer = renderers.itemSectionRenderer;\n'
-    '            YTIItemSectionSupportedRenderers *firstObject = [sectionRenderer.contentsArray firstObject];\n'
-    '            return firstObject.hasPromotedVideoRenderer || firstObject.hasCompactPromotedVideoRenderer || firstObject.hasPromotedVideoInlineMutedRenderer;\n'
-    '        }];\n'
-    '        [contentsArray removeObjectsAtIndexes:removeIndexes];\n'
-    '    } %orig;\n'
-    '}\n'
-    '%end'
-)
-if section_anchor not in src:
-    raise SystemExit("YTSectionListViewController hook anchor not found")
-section_replace = (
-    '%hook YTSectionListViewController\n'
-    '- (void)loadWithModel:(YTISectionListRenderer *)model {\n'
-    '    BOOL _ytlNoAds = ytlBool(@"noAds");\n'
-    '    BOOL _ytlHideShorts = ytlBool(@"hideShorts");\n'
-    '    if (_ytlNoAds || _ytlHideShorts) {\n'
-    '        NSMutableArray <YTISectionListSupportedRenderers *> *contentsArray = model.contentsArray;\n'
-    '        NSIndexSet *removeIndexes = [contentsArray indexesOfObjectsPassingTest:^BOOL(YTISectionListSupportedRenderers *renderers, NSUInteger idx, BOOL *stop) {\n'
-    '            YTIItemSectionRenderer *sectionRenderer = renderers.itemSectionRenderer;\n'
-    '            YTIItemSectionSupportedRenderers *firstObject = [sectionRenderer.contentsArray firstObject];\n'
-    '            if (_ytlNoAds && (firstObject.hasPromotedVideoRenderer || firstObject.hasCompactPromotedVideoRenderer || firstObject.hasPromotedVideoInlineMutedRenderer)) {\n'
-    '                return YES;\n'
-    '            }\n'
-    '            if (_ytlHideShorts && firstObject.elementRenderer) {\n'
-    '                NSString *_slfDesc = [firstObject.elementRenderer description];\n'
-    '                if (_slfDesc && ([_slfDesc containsString:@"youtube_shorts_24"] || [_slfDesc containsString:@"shorts_grid_shelf_footer"])) {\n'
-    '                    _yld(@"[SLF] removing section idx=%lu matched-shorts-token", (unsigned long)idx);\n'
-    '                    return YES;\n'
+# Injection 7 (diag-16): hook YTIElementRenderer initializers to mark shorts
+# renderers AND their elements with objc_setAssociatedObject. The CTRL method
+# list dump in diag-13 showed YTIElementRenderer has two init methods:
+# initWithElement: (taking an element instance) and initWithElementData: (taking
+# raw NSData). These are the bind points where we can correlate the renderer
+# (whose description contains shorts tokens) with the element (which becomes
+# cellNode._element at size time).
+#
+# When a renderer is initialized and its description matches a shorts token,
+# we mark self via objc_setAssociatedObject. If initWithElement: is the
+# constructor, we also mark the passed element argument — that's the same
+# ELMElement instance the cell will hold in its _element ivar later. At
+# sizeForElement time we check the cell's element for the association and
+# return CGSizeZero on hit.
+#
+# The diag-15 section-list filter is removed entirely — it caused regressions
+# (settings UI broken, first-launch crash) and zero SLF matches in the log.
+init_hook = (
+    '\n'
+    '// [YTLite-DIAG] TEMPORARY: mark shorts renderers + elements at init time\n'
+    '// so the SZE2 hook can collapse matching cells by associated-object lookup.\n'
+    '%hook YTIElementRenderer\n'
+    '- (instancetype)initWithElement:(id)element {\n'
+    '    self = %orig;\n'
+    '    if (self) {\n'
+    '        NSString *_initDesc = nil;\n'
+    '        @try { _initDesc = [self description]; } @catch (NSException *_e) { _initDesc = nil; }\n'
+    '        BOOL _initMatched = NO;\n'
+    '        NSString *_initToken = nil;\n'
+    '        if (_initDesc) {\n'
+    '            NSArray *_initTokens = @[@"youtube_shorts_24", @"shorts_grid_shelf_footer", @"shorts_video_cell.eml"];\n'
+    '            for (NSString *_tok in _initTokens) {\n'
+    '                if ([_initDesc containsString:_tok]) {\n'
+    '                    _initMatched = YES;\n'
+    '                    _initToken = _tok;\n'
+    '                    break;\n'
     '                }\n'
     '            }\n'
-    '            return NO;\n'
-    '        }];\n'
-    '        [contentsArray removeObjectsAtIndexes:removeIndexes];\n'
-    '    } %orig;\n'
+    '        }\n'
+    '        if (_initMatched) {\n'
+    '            objc_setAssociatedObject(self, &_ytlite_shorts_assoc_key, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);\n'
+    '            if (element) {\n'
+    '                objc_setAssociatedObject(element, &_ytlite_shorts_assoc_key, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);\n'
+    '            }\n'
+    '        }\n'
+    '        static NSMutableSet *_init1_seen = nil;\n'
+    '        static NSLock *_init1_lock = nil;\n'
+    '        static dispatch_once_t _init1_once;\n'
+    '        dispatch_once(&_init1_once, ^{\n'
+    '            _init1_seen = [NSMutableSet set];\n'
+    '            _init1_lock = [[NSLock alloc] init];\n'
+    '        });\n'
+    '        NSString *_initElemCls = element ? NSStringFromClass([element class]) : @"<nil>";\n'
+    '        NSString *_initKey = [NSString stringWithFormat:@"initWithElement:|elemCls=%@|matched=%d|token=%@", _initElemCls, _initMatched, _initToken ?: @"-"];\n'
+    '        [_init1_lock lock];\n'
+    '        BOOL _isNew = ![_init1_seen containsObject:_initKey];\n'
+    '        if (_isNew) [_init1_seen addObject:[_initKey copy]];\n'
+    '        [_init1_lock unlock];\n'
+    '        if (_isNew) {\n'
+    '            _yld(@"[INIT1] elemCls=%@ matched=%@ token=%@", _initElemCls, _initMatched ? @"YES" : @"NO", _initToken ?: @"-");\n'
+    '        }\n'
+    '    }\n'
+    '    return self;\n'
     '}\n'
-    '%end'
+    '- (instancetype)initWithElementData:(NSData *)data {\n'
+    '    self = %orig;\n'
+    '    if (self) {\n'
+    '        NSString *_initDesc = nil;\n'
+    '        @try { _initDesc = [self description]; } @catch (NSException *_e) { _initDesc = nil; }\n'
+    '        BOOL _initMatched = NO;\n'
+    '        NSString *_initToken = nil;\n'
+    '        if (_initDesc) {\n'
+    '            NSArray *_initTokens = @[@"youtube_shorts_24", @"shorts_grid_shelf_footer", @"shorts_video_cell.eml"];\n'
+    '            for (NSString *_tok in _initTokens) {\n'
+    '                if ([_initDesc containsString:_tok]) {\n'
+    '                    _initMatched = YES;\n'
+    '                    _initToken = _tok;\n'
+    '                    break;\n'
+    '                }\n'
+    '            }\n'
+    '        }\n'
+    '        if (_initMatched) {\n'
+    '            objc_setAssociatedObject(self, &_ytlite_shorts_assoc_key, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);\n'
+    '        }\n'
+    '        static NSMutableSet *_init2_seen = nil;\n'
+    '        static NSLock *_init2_lock = nil;\n'
+    '        static dispatch_once_t _init2_once;\n'
+    '        dispatch_once(&_init2_once, ^{\n'
+    '            _init2_seen = [NSMutableSet set];\n'
+    '            _init2_lock = [[NSLock alloc] init];\n'
+    '        });\n'
+    '        NSString *_initKey = [NSString stringWithFormat:@"initWithElementData:|dataLen=%lu|matched=%d|token=%@", (unsigned long)(data ? [data length] : 0), _initMatched, _initToken ?: @"-"];\n'
+    '        [_init2_lock lock];\n'
+    '        BOOL _isNew = ![_init2_seen containsObject:_initKey];\n'
+    '        if (_isNew) [_init2_seen addObject:[_initKey copy]];\n'
+    '        [_init2_lock unlock];\n'
+    '        if (_isNew) {\n'
+    '            _yld(@"[INIT2] dataLen=%lu matched=%@ token=%@", (unsigned long)(data ? [data length] : 0), _initMatched ? @"YES" : @"NO", _initToken ?: @"-");\n'
+    '        }\n'
+    '    }\n'
+    '    return self;\n'
+    '}\n'
+    '%end\n'
 )
-src = src.replace(section_anchor, section_replace)
+src = src.rstrip() + '\n' + init_hook
 
 p.write_text(src)
-print("Diagnostic injections applied: helper + YT/AS/DEQ/NDQ logging + %ctor with class chains + ELMD + SZE2 with elem ivar dump + token extension + section-list shorts filter (SLF)")
+print("Diagnostic injections applied: helper + YT/AS/DEQ/NDQ logging + %ctor with class chains + ELMD + SZE2 (elem desc + assoc check) + token extension + INIT1/INIT2 renderer-init hooks with associated-object marking")

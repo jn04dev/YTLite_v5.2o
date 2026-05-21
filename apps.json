@@ -1,34 +1,21 @@
 {
-  "name": "Jake's YouTube Plus",
-  "identifier": "com.jn04dev.ytlite-source",
-  "sourceURL": "https://raw.githubusercontent.com/jn04dev/YTLite_v5.2o/main/apps.json",
-  "apps": [
-    {
-      "name": "YouTube+",
-      "bundleIdentifier": "com.google.ios.youtube.altstore",
-      "developerName": "Jake (YTLite fork)",
-      "version": "21.16.2",
-      "versionDate": "2026-05-20T23:36:44Z",
-      "versionDescription": "[STABLE ytp-21] YouTube 21.16.2 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent). Built 2026-05-20T23:36:44Z.",
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-21/YouTubePlus_5.2o.ipa",
-      "localizedDescription": "Enhanced YouTube iOS client: ad blocking, Picture-in-Picture, Return YouTube Dislikes, quality selection, and more. Built from the dayanch96/YTLite project via Jake's YTLite_v5.2o fork. Rebuilt periodically as decrypted IPAs refresh.",
-      "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
-      "tintColor": "FF0000",
-      "size": 119532045
-    },
-    {
-      "name": "YT-diag",
-      "bundleIdentifier": "com.google.ios.youtube.altstore.diag",
-      "developerName": "Jake (YTLite fork — DIAG)",
-      "version": "21.19.2",
-      "versionDate": "2026-05-20T23:06:15Z",
-      "size": 121524429,
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-diag-16/YouTubeDiag_5.2o.ipa",
-      "versionDescription": "[DIAG ytp-diag-16] YouTube 21.19.2 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent). File-logging capture build — see Documents/ytlite-diag.log via Finder File Sharing. Built 2026-05-20T23:06:15Z.",
-      "localizedDescription": "Diagnostic build of YouTube+. Identical features to the stable entry, plus a temporary file-based logging hook that writes cell class info to Documents/ytlite-diag.log (retrieve via Finder → iPhone → Files → YT-diag → drag the log out) so the maintainer can identify how YT 21.x labels shorts shelves. Different bundle id from the stable build — both can be installed side by side.",
-      "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
-      "tintColor": "FFAA00"
-    }
-  ],
-  "news": []
+    "name": "Jake's YouTube Plus",
+    "identifier": "com.jn04dev.ytlite-source",
+    "sourceURL": "https://raw.githubusercontent.com/jn04dev/YTLite_v5.2o/main/apps.json",
+    "apps": [
+        {
+            "name": "YouTube+",
+            "bundleIdentifier": "com.google.ios.youtube.altstore",
+            "developerName": "Jake (YTLite fork)",
+            "version": "21.16.2",
+            "versionDate": "2026-05-20T23:36:44Z",
+            "versionDescription": "[STABLE ytp-21] YouTube 21.16.2 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent). Built 2026-05-20T23:36:44Z.",
+            "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-21/YouTubePlus_5.2o.ipa",
+            "localizedDescription": "Enhanced YouTube iOS client: ad blocking, Picture-in-Picture, Return YouTube Dislikes, quality selection, and more. Built from the dayanch96/YTLite project via Jake's YTLite_v5.2o fork. Rebuilt periodically as decrypted IPAs refresh.",
+            "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
+            "tintColor": "FF0000",
+            "size": 119532045
+        }
+    ],
+    "news": []
 }

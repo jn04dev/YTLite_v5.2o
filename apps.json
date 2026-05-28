@@ -17,17 +17,30 @@
       "size": 119532045
     },
     {
-      "name": "YT-test",
-      "bundleIdentifier": "com.google.ios.youtube.altstore.test",
-      "developerName": "Jake (YTLite fork): YTUnShorts test",
-      "version": "21.20.4",
-      "versionDate": "2026-05-28T19:57:31Z",
-      "versionDescription": "[TEST ytp-test-1] YouTube 21.20.4 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent) + YTUnShorts shorts-shelf filter. Built 2026-05-28T19:57:31Z.",
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-test-1/YouTubePlus_5.2o.ipa",
-      "localizedDescription": "TEST build: stable YouTube+ plus PoomSmart YTUnShorts, a section-model shorts-shelf filter, to verify the YT 21.x blank shorts wrapper row collapses. Installs alongside the stable YouTube+ app (separate bundle ID).",
+      "name": "yt20",
+      "bundleIdentifier": "com.google.ios.youtube.altstore.yt20",
+      "developerName": "Jake (YTLite fork): legacy 20.x build",
+      "version": "0.0.0",
+      "versionDate": "2026-05-28T00:00:00Z",
+      "versionDescription": "Pending first yt20 build.",
+      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-21/YouTubePlus_5.2o.ipa",
+      "localizedDescription": "Comparison build on legacy YouTube 20.x, where YTLite's own shorts hooks and YTUnShorts both bind. Tests whether the shorts shelf is cleanly removed AND whether the old client still loads video. Coexists with yt21 and the stable app (separate bundle ID).",
+      "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
+      "tintColor": "FFAA00",
+      "size": 119532045
+    },
+    {
+      "name": "yt21",
+      "bundleIdentifier": "com.google.ios.youtube.altstore.yt21",
+      "developerName": "Jake (YTLite fork): current 21.x build",
+      "version": "0.0.0",
+      "versionDate": "2026-05-28T00:00:00Z",
+      "versionDescription": "Pending first yt21 build.",
+      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-21/YouTubePlus_5.2o.ipa",
+      "localizedDescription": "Comparison build on current YouTube 21.20.4 with the clean stable feature set. The shorts shelf leaves the known blank gap when hidden; everything else is fully functional. Coexists with yt20 and the stable app (separate bundle ID).",
       "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
       "tintColor": "0066FF",
-      "size": 122341693
+      "size": 119532045
     }
   ],
   "news": []

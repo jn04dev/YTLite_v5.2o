@@ -15,6 +15,19 @@
             "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
             "tintColor": "FF0000",
             "size": 119532045
+        },
+        {
+            "name": "YT-test",
+            "bundleIdentifier": "com.google.ios.youtube.altstore.test",
+            "developerName": "Jake (YTLite fork): YTUnShorts test",
+            "version": "0.0.0",
+            "versionDate": "2026-05-28T00:00:00Z",
+            "versionDescription": "Pending first test build.",
+            "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-21/YouTubePlus_5.2o.ipa",
+            "localizedDescription": "TEST build: stable YouTube+ plus PoomSmart YTUnShorts, a section-model shorts-shelf filter, to verify the YT 21.x blank shorts wrapper row collapses. Installs alongside the stable YouTube+ app (separate bundle ID).",
+            "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
+            "tintColor": "0066FF",
+            "size": 119532045
         }
     ],
     "news": []

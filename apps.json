@@ -33,14 +33,14 @@
       "name": "yt21",
       "bundleIdentifier": "com.google.ios.youtube.altstore.yt21",
       "developerName": "Jake (YTLite fork): current 21.x build",
-      "version": "0.0.0",
-      "versionDate": "2026-05-28T00:00:00Z",
-      "versionDescription": "Pending first yt21 build.",
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-21/YouTubePlus_5.2o.ipa",
+      "version": "21.20.4",
+      "versionDate": "2026-05-28T22:38:19Z",
+      "versionDescription": "[YT21 ytp-yt21-1] YouTube 21.20.4 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent) [current 21.x baseline]. Built 2026-05-28T22:38:19Z.",
+      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-yt21-1/YouTubePlus_5.2o.ipa",
       "localizedDescription": "Comparison build on current YouTube 21.20.4 with the clean stable feature set. The shorts shelf leaves the known blank gap when hidden; everything else is fully functional. Coexists with yt20 and the stable app (separate bundle ID).",
       "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
       "tintColor": "0066FF",
-      "size": 119532045
+      "size": 122339374
     }
   ],
   "news": []

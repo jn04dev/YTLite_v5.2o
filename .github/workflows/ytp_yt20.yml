@@ -1,4 +1,4 @@
-name: Create YouTube Plus TEST app (YTUnShorts shorts-shelf filter)
+name: Create yt20 (YouTube 20.x legacy) app
 
 on:
   workflow_dispatch:
@@ -54,13 +54,13 @@ on:
 
       display_name:
         description: "App Name (Optional)"
-        default: "YT-test"
+        default: "yt20"
         required: true
         type: string
 
       bundle_id:
         description: "BundleID (Optional)"
-        default: "com.google.ios.youtube.altstore.test"
+        default: "com.google.ios.youtube.altstore.yt20"
         required: true
         type: string
 
@@ -468,22 +468,10 @@ jobs:
 
       - name: Patch YTUnShorts section tokens for YT 21.x
         run: |
-          # YTUnShorts filters shorts shelves at the section-model layer
-          # (YTInnerTubeCollectionViewController addSectionsFromArray: /
-          # displaySectionsWithReloadingSectionControllerByRenderer:), UPSTREAM
-          # of the cell layer where YT 21.x severs the cell->renderer bridge.
-          # Its primary path is structured (YTIShelfRenderer ->
-          # horizontalListRenderer.itemsArray -> elementRenderer.description
-          # containsString:"shorts_video_cell") and already keys on a token
-          # confirmed live on 21.x (shorts_video_cell.eml-fe). Left untouched.
-          #
-          # Insurance only: the generic YTIItemSectionRenderer path checks the
-          # section description for "shorts_shelf.eml". The bare "shorts_shelf"
-          # token was absent from 21.x element captures, so also match the two
-          # shorts-EXCLUSIVE tokens present in 21.x (shorts_grid_shelf_footer,
-          # youtube_shorts_24). Negligible over-match risk, unlike the broad
-          # hyphenated "shorts-shelf" token that blanked the feed in the prior
-          # Approach-D attempt.
+          # On 20.x YTUnShorts' YTInnerTubeCollectionViewController hooks bind and
+          # fire (the methods exist on that YouTube era), so this build tests the
+          # only client family where section-level shorts removal works. Token
+          # extension is harmless on 20.x and ready if reused on 21.x later.
           python3 - <<'PY'
           import pathlib
           p = pathlib.Path("${{ github.workspace }}/YTUnShorts/Tweak.x")
@@ -493,7 +481,7 @@ jobs:
           if old not in src:
               raise SystemExit("YTUnShorts token anchor not found; source may have changed")
           p.write_text(src.replace(old, new))
-          print("Patched YTUnShorts: extended section-description tokens for YT 21.x")
+          print("Patched YTUnShorts: extended section-description tokens")
           PY
 
       - name: Build YTUnShorts
@@ -519,8 +507,8 @@ jobs:
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ytp-test-${{ github.run_number }}
-          name: YouTubePlus TEST v${{ inputs.tweak_version }} (${{ github.run_number }})
+          tag_name: ytp-yt20-${{ github.run_number }}
+          name: yt20 v${{ inputs.tweak_version }} (${{ github.run_number }})
           files: YouTubePlus_${{ inputs.tweak_version }}.ipa
           draft: false
 
@@ -528,7 +516,7 @@ jobs:
         run: |
           IPA="${{ github.workspace }}/YouTubePlus_${{ inputs.tweak_version }}.ipa"
           SIZE=$(stat -f%z "$IPA")
-          URL="https://github.com/${{ github.repository }}/releases/download/ytp-test-${{ github.run_number }}/YouTubePlus_${{ inputs.tweak_version }}.ipa"
+          URL="https://github.com/${{ github.repository }}/releases/download/ytp-yt20-${{ github.run_number }}/YouTubePlus_${{ inputs.tweak_version }}.ipa"
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           # Extract actual version + bundle ID from the IPA's Info.plist
@@ -552,7 +540,7 @@ jobs:
           else
             INT_LIST=$(IFS=, ; echo "${INTS[*]}" | sed 's/,/, /g')
           fi
-          DESC="[TEST ytp-test-${{ github.run_number }}] YouTube ${REAL_VERSION} + YTLite v${{ inputs.tweak_version }} (${INT_LIST}) + YTUnShorts shorts-shelf filter. Built ${DATE}."
+          DESC="[YT20 ytp-yt20-${{ github.run_number }}] YouTube ${REAL_VERSION} + YTLite v${{ inputs.tweak_version }} (${INT_LIST}) + YTUnShorts [legacy 20.x shorts-removal test]. Built ${DATE}."
           echo "Description: $DESC"
 
           cd ${{ github.workspace }}/main
@@ -579,11 +567,11 @@ jobs:
           if git diff --cached --quiet; then
             echo "No apps.json changes"
           else
-            git commit -m "Update apps.json for ytp-test-${{ github.run_number }}"
+            git commit -m "Update apps.json for ytp-yt20-${{ github.run_number }}"
             git push || (git pull --rebase --autostash && git push)
           fi
 
       - name: Output Release URL
         run: |
-          echo "::notice::Release available at: https://github.com/${{ github.repository }}/releases/tag/ytp-test-${{ github.run_number }}"
+          echo "::notice::Release available at: https://github.com/${{ github.repository }}/releases/tag/ytp-yt20-${{ github.run_number }}"
           echo "::notice::AltStore source URL: https://raw.githubusercontent.com/${{ github.repository }}/main/apps.json"

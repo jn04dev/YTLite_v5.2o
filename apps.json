@@ -20,14 +20,14 @@
       "name": "yt20",
       "bundleIdentifier": "com.google.ios.youtube.altstore.yt20",
       "developerName": "Jake (YTLite fork): legacy 20.x build",
-      "version": "0.0.0",
-      "versionDate": "2026-05-28T00:00:00Z",
-      "versionDescription": "Pending first yt20 build.",
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-21/YouTubePlus_5.2o.ipa",
+      "version": "20.42.3",
+      "versionDate": "2026-05-28T23:06:11Z",
+      "versionDescription": "[YT20 ytp-yt20-1] YouTube 20.42.3 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent) + YTUnShorts [legacy 20.x shorts-removal test]. Built 2026-05-28T23:06:11Z.",
+      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-yt20-1/YouTubePlus_5.2o.ipa",
       "localizedDescription": "Comparison build on legacy YouTube 20.x, where YTLite's own shorts hooks and YTUnShorts both bind. Tests whether the shorts shelf is cleanly removed AND whether the old client still loads video. Coexists with yt21 and the stable app (separate bundle ID).",
       "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
       "tintColor": "FFAA00",
-      "size": 119532045
+      "size": 115167888
     },
     {
       "name": "yt21",

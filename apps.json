@@ -4,56 +4,17 @@
   "sourceURL": "https://raw.githubusercontent.com/jn04dev/YTLite_v5.2o/main/apps.json",
   "apps": [
     {
-      "name": "YouTube+",
-      "bundleIdentifier": "com.google.ios.youtube.altstore",
-      "developerName": "Jake (YTLite fork)",
-      "version": "21.16.2",
-      "versionDate": "2026-05-20T23:36:44Z",
-      "versionDescription": "[STABLE ytp-21] YouTube 21.16.2 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent). Built 2026-05-20T23:36:44Z.",
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-21/YouTubePlus_5.2o.ipa",
-      "localizedDescription": "Enhanced YouTube iOS client: ad blocking, Picture-in-Picture, Return YouTube Dislikes, quality selection, and more. Built from the dayanch96/YTLite project via Jake's YTLite_v5.2o fork. Rebuilt periodically as decrypted IPAs refresh.",
-      "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
-      "tintColor": "FF0000",
-      "size": 119532045
-    },
-    {
-      "name": "yt20",
-      "bundleIdentifier": "com.google.ios.youtube.altstore.yt20",
-      "developerName": "Jake (YTLite fork): legacy 20.x build",
-      "version": "20.42.3",
-      "versionDate": "2026-05-28T23:06:11Z",
-      "versionDescription": "[YT20 ytp-yt20-1] YouTube 20.42.3 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent) + YTUnShorts [legacy 20.x shorts-removal test]. Built 2026-05-28T23:06:11Z.",
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-yt20-1/YouTubePlus_5.2o.ipa",
-      "localizedDescription": "Comparison build on legacy YouTube 20.x, where YTLite's own shorts hooks and YTUnShorts both bind. Tests whether the shorts shelf is cleanly removed AND whether the old client still loads video. Coexists with yt21 and the stable app (separate bundle ID).",
-      "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
-      "tintColor": "FFAA00",
-      "size": 115167888
-    },
-    {
-      "name": "yt21",
-      "bundleIdentifier": "com.google.ios.youtube.altstore.yt21",
-      "developerName": "Jake (YTLite fork): current 21.x build",
-      "version": "21.20.4",
-      "versionDate": "2026-05-28T22:38:19Z",
-      "versionDescription": "[YT21 ytp-yt21-1] YouTube 21.20.4 + YTLite v5.2o (YouPiP, YouQuality, Return YouTube Dislikes, DontEatMyContent) [current 21.x baseline]. Built 2026-05-28T22:38:19Z.",
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-yt21-1/YouTubePlus_5.2o.ipa",
-      "localizedDescription": "Comparison build on current YouTube 21.20.4 with the clean stable feature set. The shorts shelf leaves the known blank gap when hidden; everything else is fully functional. Coexists with yt20 and the stable app (separate bundle ID).",
-      "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
-      "tintColor": "0066FF",
-      "size": 122339374
-    },
-    {
       "name": "YouTube+ 21.13.6 (last free)",
-      "bundleIdentifier": "com.google.ios.youtube",
+      "bundleIdentifier": "com.google.ios.youtube.altstore",
       "developerName": "diarrhea3 / YTLite 5.2b4",
       "version": "21.13.6",
       "versionDate": "2026-03-31T02:51:07Z",
-      "versionDescription": "[STABLE] Last FREE YouTube Plus (YTLite v5.2b4) for iOS 16+, matched to YouTube 21.13.6 - the community last-good pairing before 21.14+ broke the free tweak's hooks. Mirrored from diarrhea3/YTLiteDiarrhea ytp-75. Stock bundle id; installs alongside your other builds.",
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-free-21.13.6/21.13.6_YouTubePlus_5.2b4.ipa",
-      "localizedDescription": "The last functional FREE version of YouTube Plus (YTLite v5.2b4) for iOS 16+, paired with its matching YouTube 21.13.6. Ad blocking, Picture-in-Picture, Return YouTube Dislikes, quality selection, downloads, feed and tab customization. Community-recommended last-good pairing before YouTube 21.14+ refactored away the free tweak's hooks. Mirrored from diarrhea3/YTLiteDiarrhea.",
+      "versionDescription": "[STABLE] Last FREE YouTube Plus (YTLite v5.2b4) for iOS 16+, matched to YouTube 21.13.6 - the community last-good pairing before 21.14+ broke the free tweak's hooks. Home-screen title is 'YouTube+' and it uses the .altstore bundle id, so it installs ALONGSIDE the official App Store YouTube. Mirrored from diarrhea3/YTLiteDiarrhea ytp-75.",
+      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-free-21.13.6/21.13.6_YouTubePlus_5.2b4_altstore.ipa",
+      "localizedDescription": "The last functional FREE version of YouTube Plus (YTLite v5.2b4) for iOS 16+, paired with its matching YouTube 21.13.6. Ad blocking, Picture-in-Picture, Return YouTube Dislikes, quality selection, downloads, feed and tab customization. Installs as 'YouTube+' alongside the official YouTube app (distinct bundle id). Community-recommended last-good pairing before YouTube 21.14+ refactored away the free tweak's hooks. Mirrored from diarrhea3/YTLiteDiarrhea.",
       "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
       "tintColor": "34C759",
-      "size": 126776343
+      "size": 126776259
     }
   ],
   "news": []

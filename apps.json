@@ -9,12 +9,12 @@
       "developerName": "diarrhea3 / YTLite 5.2b4",
       "version": "21.13.6",
       "versionDate": "2026-03-31T02:51:07Z",
-      "versionDescription": "[STABLE] Last FREE YouTube Plus (YTLite v5.2b4) for iOS 16+, matched to YouTube 21.13.6 - the community last-good pairing before 21.14+ broke the free tweak's hooks. Home-screen title is 'YouTube+' and it uses the .ytplus bundle id, so it installs ALONGSIDE the official App Store YouTube. Mirrored from diarrhea3/YTLiteDiarrhea ytp-75.",
-      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-free-21.13.6/21.13.6_YouTubePlus_5.2b4_ytplus.ipa",
+      "versionDescription": "[STABLE] Last FREE YouTube Plus (YTLite v5.2b4) for iOS 16+, matched to YouTube 21.13.6 - the community last-good pairing before 21.14+ broke the free tweak's hooks. Home-screen title is 'YouTube+' and it uses the .ytplus bundle id, so it installs ALONGSIDE the official App Store YouTube. The bundled OpenYoutube Safari extension is stripped so free-account sideloading doesn't hit AltStore error 3011. Mirrored from diarrhea3/YTLiteDiarrhea ytp-75.",
+      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ytp-free-21.13.6/21.13.6_YouTubePlus_5.2b4_ytplus_slim.ipa",
       "localizedDescription": "The last functional FREE version of YouTube Plus (YTLite v5.2b4) for iOS 16+, paired with its matching YouTube 21.13.6. Ad blocking, Picture-in-Picture, Return YouTube Dislikes, quality selection, downloads, feed and tab customization. Installs as 'YouTube+' alongside the official YouTube app (distinct bundle id). Community-recommended last-good pairing before YouTube 21.14+ refactored away the free tweak's hooks. Mirrored from diarrhea3/YTLiteDiarrhea.",
       "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
       "tintColor": "34C759",
-      "size": 126776261
+      "size": 126544350
     }
   ],
   "news": []

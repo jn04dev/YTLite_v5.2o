@@ -15,6 +15,20 @@
       "iconURL": "https://raw.githubusercontent.com/dayanch96/YTLite/main/Icon.png",
       "tintColor": "34C759",
       "size": 126544350
+    },
+    {
+      "name": "Ratito",
+      "bundleIdentifier": "com.jakenorbury.spanishgame",
+      "developerName": "Jake Norbury",
+      "version": "0.1",
+      "versionDate": "2026-11-18T05:50:00Z",
+      "versionDescription": "First demo: placement test, ten levels from Cabo San Lucas to Tijuana, quick rounds of Mexican Spanish. Unsigned; AltStore signs it on install.",
+      "downloadURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ratito-0.1/Ratito-0.1.ipa",
+      "localizedDescription": "Ratito: a quick Spanish game to tap in place of social media. A short adaptive test finds your level, or pick any level; then rounds of about a minute, with Mexican Spanish voices, spaced review of what you miss, and a streak across the day.",
+      "iconURL": "https://github.com/jn04dev/YTLite_v5.2o/releases/download/ratito-0.1/Ratito-icon.png",
+      "tintColor": "0F6E7C",
+      "size": 932398,
+      "minOSVersion": "18.0"
     }
   ],
   "news": []
